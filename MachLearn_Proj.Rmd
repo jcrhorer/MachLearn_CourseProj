@@ -1,0 +1,68 @@
+---
+title: "Application of machine learning on accelerometer measurements to predict exercise quality"
+author: "Jim Rhorer"
+date: "Thursday, August 21, 2014"
+output: html_document
+---
+   
+   
+   
+### Synopsis
+   
+The purpose of this project is to explore various applications of machine learning techniques to create a predictive model.  The data of interest for this project is accelerometer data obtained from individuals lifting weights.  We will use the data to determine the quality of the exercise given the accelerometer readings.
+
+### Prep work
+   
+The first step to this project is obtaining the data, loading any required packages, slicing up the data, and cleaning the data up a little bit.
+
+The data was obtained using `read.csv`.  The data was sliced into training and testing data sets using the `createDataPartition` function from the "caret" package.
+
+```{r,echo=FALSE, result="hide", message=FALSE,warning=FALSE}
+#'Get the data
+train<-read.csv("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", header=TRUE, stringsAsFactors=FALSE)
+
+#'Install caret and psych packages
+library(caret)
+library(psych)
+library(randomForest)
+```
+
+```{r}
+
+#'Slice data into training and test data
+inTrain<-createDataPartition(y=train$classe,p=0.5, list=FALSE)
+trainTrain <- train[inTrain,]
+trainTest <- train[-inTrain,]
+
+#'Set seed
+set.seed(2468)
+
+#'Convert outcome to a factor
+trainTrain$classe2<-as.factor(trainTrain$classe)
+trainTest$classe2<-as.factor(trainTest$classe)
+```
+   
+### Narrowing the predictors
+   
+The data set contained far too many columns to be immediately ready for model building.  The next course of action was to narrow down the field.  By cutting out columns with incomplete data sets (didn't contain entries for every record or very low standard deviation) and using the `nearZeroVar` function to remove any other columns with little or no variation, we are able to trim down 161 columns to a more reasonable 53 potential predictors.
+
+```{r, warning=FALSE}
+trainColumns<-describe(trainTrain)[describe(trainTrain)$n==9812 & is.na(describe(trainTrain)$sd)==FALSE & describe(trainTrain)$sd>.01,]
+trTr<-trainTrain[,trainColumns$vars]
+training1<-trTr[,nearZeroVar(trTr,saveMetrics=TRUE)$nzv==FALSE]
+```
+
+### Training and testing the model
+   
+Once the data set was narrowed down, the next step was to build the model.  The random forest was my choice due to its robustness and its ability to handle non-linear relationships.  After several unsuccessful attempts to use the `train` version of random forest, I switched over to the randomForest package's `randomForest`.  
+```{r}
+modelFit<-randomForest(classe2 ~ ., data=training1)
+modelResult<-predict(modelFit,trainTest)
+confusionMatrix(modelResult,trainTest$classe2)$table
+confusionMatrix(modelResult,trainTest$classe2)$overall
+```
+
+###Final product
+
+My first run of a random forest was successful and better than I had hoped.  My initial expectation was for an accuracy of 70-80% (most of my exposure to ML has been through multiple regression).  With the results returned for my first model (accuracy = 99.9%) I was satisfied.
+#
